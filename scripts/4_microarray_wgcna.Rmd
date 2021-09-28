@@ -1,0 +1,193 @@
+---
+title: "Weighted gene correlation analysis of BeadChip microarray data"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Load prerequisites that will be needed for weighted gene co-expression network analysis (WGCNA) in R environment.
+```{r, message=FALSE, warning=FALSE}
+
+# libraries
+library(tidyverse)
+library(genefilter)
+library(Biobase)
+library(WGCNA)
+
+```
+
+Read normalized gene expression intensity values, which were generated using microarray_dea.Rmd script.
+```{r, warning=FALSE, message=FALSE}
+
+# set wd to main
+setwd('..')
+
+# exprs data
+exprs_rna <- read_tsv(
+  paste0(getwd(), "/data/se_rna_exprs.tsv")
+) %>% column_to_rownames("gene")
+
+
+# meta data
+meta_rna <- read_tsv(
+  paste0(getwd(),"/data/se_rna_meta.tsv")
+  )
+
+meta_mirna <- read_tsv(
+  paste0(getwd(),"/data/se_mirna_meta.tsv")
+  )
+
+# keep overlapping
+meta_rna <- meta_rna %>% 
+  filter(sample_id %in% meta_mirna$sample_id)
+
+```
+
+Retain the most variable genes using varFilter function from genefilter.
+```{r, warning=FALSE, message=FALSE}
+
+# keep variable genes
+exprs_rna_filt <- exprs(
+  varFilter(
+    ExpressionSet(
+      assayData = as.matrix(exprs_rna)
+      ),
+    var.func = "sd",
+    var.cutoff=0.5
+    )
+  )
+# print number of genes
+dim(exprs_rna_filt)
+
+```
+
+Filter outlying samples based on network connectivity (WGCNA workflow):
+```{r, warning=FALSE, message=FALSE}
+
+# split expression per trait
+exprs_list <- exprs_rna_filt %>% t() %>%
+  as_tibble(rownames = "array_id") %>% 
+  left_join(
+    meta_rna %>%
+      select(array_id, diagnosis),., by = "array_id"
+    ) %>%
+  column_to_rownames("array_id") %>%
+  split(., .$diagnosis) %>% 
+  lapply(., function(x){
+    x %>% select(-diagnosis) %>% t()
+    })
+
+# squared Euclidean distance
+adj_list <- lapply(
+  exprs_list,
+  adjacency,
+  type = "distance"
+  )
+
+# connectivity
+k_list <- lapply(adj_list, function(x){
+  as.numeric(apply(x, 2, sum)) - 1
+  })
+
+# standardized connectivity
+Z_k_list <- lapply(k_list, scale)
+
+# threshold
+thresholdZ_k <- -2.5
+
+# get outlying samples
+remove_list <- 
+  lapply(Z_k_list, function(x){
+    x < thresholdZ_k | is.na(x)
+    })
+
+# remove the outliers from expression data
+exprs_list_qced <- 
+  lapply(seq(exprs_list), function(x) {
+    exprs_list[[x]][,!remove_list[[x]]]
+    })
+names(exprs_list_qced) <- names(exprs_list)
+
+# print dims
+lapply(exprs_list_qced, dim)
+
+```
+
+Calculate soft-thresholding powers for construction of trait-wise networks.
+```{r, warning=FALSE, message=FALSE}
+
+# set of soft thresholding powers
+powers = c(1:20)
+
+# power based on SFT criterion
+sft_list <- lapply(exprs_list_qced, function(x){
+  pickSoftThreshold(
+    t(x),
+    powerVector = powers,
+    networkType = "signed",
+    RsquaredCut = 0.8
+    )
+})
+
+# add signed value of SFT R^2
+sft_list <- lapply(sft_list, function(x) {
+  x$fitIndices <- x$fitIndices %>% 
+    mutate(SFT.R.sq.signed = -sign(slope)*SFT.R.sq)
+  return(x)
+  })
+
+```
+
+Calculate topological overlap matrices for each trait
+```{r, warning=FALSE, message=FALSE}
+
+# get median threshold of networks
+sft <- lapply(
+  sft_list, function(x) x$powerEstimate
+  ) %>% 
+  bind_rows() %>%
+  gather(diagnosis, soft) %>%
+  summarise(soft=round(median(soft))) %>% 
+  pull(soft)
+
+# list of topological overlap matrices
+toms_list <- lapply(exprs_list_qced, function(x){
+  TOMsimilarityFromExpr(
+    t(x),
+    corType = "bicor",
+    networkType = "signed",
+    power = sft,
+    TOMDenom = "mean",
+    nThreads = 4
+    )
+  })
+
+# add gene names
+toms_list <- lapply(toms_list, function(x){
+  colnames(x) <- rownames(exprs_list_qced$HC)
+  rownames(x) <- rownames(exprs_list_qced$HC)
+  return(x)
+})
+
+# write for tensor decomposition
+setwd('..')
+for(i in seq(toms_list)){
+  x <- toms_list[[i]] %>% as.data.frame()
+  write_csv(
+    x, path = gzfile(
+      paste0(getwd(), "/data/tom_mrna_", names(toms_list)[i], ".csv.gz")
+      )
+  )
+}
+
+# print dims
+lapply(toms_list, dim)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+sessionInfo()
+```

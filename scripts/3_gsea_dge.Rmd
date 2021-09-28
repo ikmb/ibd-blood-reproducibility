@@ -1,0 +1,289 @@
+---
+title: "Gene set enrichment analysis of differentially expressed genes"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load prerequisites that will be needed for gene set enrichment analysis (GSEA) in R environment.
+```{r, message=FALSE, warning=FALSE}
+
+# libraries
+library(tidyverse)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(multiMiR)
+
+```
+
+Read results of differential gene expression, which were generated using microrna_dea.Rmd and microarray_dea.Rmd.
+```{r, warning=FALSE, message=FALSE}
+
+# set wd to main
+setwd('..')
+
+# dea results
+dea_res_list <- 
+  list.files(
+    path = paste0(getwd(),"/results"),
+    pattern = "dea_results.tsv",
+    full.names = TRUE
+    ) 
+
+dea_res <- lapply(dea_res_list, read_tsv)
+names(dea_res) <- str_extract(
+  dea_res_list, ".e_.*_dea"
+)
+dea_res
+
+```
+
+GSEA for deferentially expressed genes and microRNAs was performed using in blood expressed genes as a universe for over-representation analysis (ORA).
+```{r, warning=FALSE, message=FALSE}
+
+# all expressed genes in peripheral blood dataset
+expressed_genes <- dea_res$se_rna_dea %>% 
+  dplyr::select(
+    Symbol, ENTREZ
+  ) %>% distinct() %>% 
+  mutate(
+    ENTREZID=as.character(ENTREZ)
+    )
+
+# print number of genes
+nrow(expressed_genes)
+
+```
+
+GSEA of deferentially expressed genes using GO terms (treatment-naive cohort):
+```{r, warning=TRUE, message=TRUE}
+
+# get deferentially expressed genes
+se_dea_gene_list <- dea_res$se_rna_dea %>%
+  filter(dea %in% "de") %>% 
+  split(., f = .$comparison) %>%
+  lapply(., function(x){
+    x %>% dplyr::select(Symbol, ENTREZ) %>% 
+      mutate(ENTREZID = as.character(ENTREZ))
+    })
+
+# remove empty elements (such as CD vs UC)
+se_dea_gene_list <- compact(se_dea_gene_list)
+
+# print de genes
+lapply(se_dea_gene_list, nrow)
+
+# perform run over-representation analysis
+# using expressed genes as universe
+se_dea_gene_go <- lapply(
+  se_dea_gene_list, function(x) {
+    enrichGO(
+      gene = x$ENTREZID,
+      OrgDb = org.Hs.eg.db,
+      ont = "BP",
+      pAdjustMethod = "BH",
+      universe = expressed_genes$ENTREZID
+      )
+  })
+
+# combine results to table for plotting
+se_dea_gene_go_tb <- lapply(
+  se_dea_gene_go, function(x){
+     x %>% .@result  }
+  ) %>% bind_rows(.id = "comparison") %>% 
+  filter(p.adjust<0.05)
+
+# visualize top sig terms
+se_dea_gene_go_tb %>% 
+  group_by(comparison) %>%
+  top_n(-15, wt=p.adjust) %>% 
+  ggplot(aes(x = Count, y = fct_reorder(Description, Count))) + 
+  geom_point(aes(size = Count, color = p.adjust)) +
+  facet_wrap(~comparison, nrow = 1) + ylab(NULL) +
+  theme(legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.box = "vertical")
+
+```
+
+GSEA of validated target genes of deferentially expressed miRNAs. Analysis was performed using target genes, that are found to be expressed in blood (using microarray data to define expression status). The miRTarbase was was accessed via multiMiR package.
+
+Treatment-naive Swedish (se) cohort:
+```{r, warning=TRUE, message=TRUE}
+
+# get deferentially expressed mirna
+se_dea_mir_list <- dea_res$se_mirna_dea %>%
+  filter(dea %in% "de") %>% 
+  split(., f = .$comparison) %>%
+  lapply(., function(x){x %>% .$Symbol})
+
+# remove empty elements (such as CD vs UC)
+se_dea_mir_list <- compact(se_dea_mir_list)
+
+# print de mir
+lapply(se_dea_mir_list, length)
+
+# validated MTIs for all comparisons
+se_mirtar_list <- 
+  lapply(se_dea_mir_list, function(x){
+    y <- get_multimir(
+      org = "hsa",
+      mirna = x,
+      target = expressed_genes$ENTREZID,
+      table = "mirtarbase",
+      summary = TRUE)
+    return(y@data)
+})
+
+# filter MTIs based on experiment type
+se_mirtar_list_filt <- lapply(se_mirtar_list, function(x){
+  x %>% filter(
+    grepl("Luciferase|Western|pSILAC|Proteomics", experiment)
+    )
+  })
+
+# run over-representation analysis
+# using expressed genes as universe
+se_mirtar_go <- lapply(se_mirtar_list_filt, function(x){
+  enrichGO(
+    gene = unique(x$target_entrez),
+    OrgDb = org.Hs.eg.db,
+    ont = "BP",
+    pAdjustMethod = "BH",
+    universe = expressed_genes$ENTREZID
+    )
+})
+
+# flatten results to table
+se_mirtar_go_tb <- lapply(
+  se_mirtar_go, function(x) x %>% .@result
+  ) %>% bind_rows(.id = "comparison") %>%
+  filter(p.adjust<0.05)
+
+# visualize
+se_mirtar_go_tb %>% 
+  group_by(comparison) %>% 
+  top_n(-15, wt=p.adjust) %>% 
+  ggplot(aes(x = Count, y = fct_reorder(Description, Count))) + 
+  geom_point(aes(size = Count, color = p.adjust)) +
+  facet_wrap(~comparison, nrow = 1) + ylab(NULL) +
+  theme(legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.box = "vertical")
+
+```
+
+Treatment-receiving German (de) cohort:
+```{r, warning=FALSE, message=FALSE}
+
+# get deferentially expressed mirna
+de_dea_mir_list <- dea_res$de_mirna_dea %>%
+  filter(dea %in% "de") %>% 
+  split(., f = .$comparison) %>%
+  lapply(., function(x){x %>% .$Symbol})
+
+# remove empty elements (such as CD vs UC)
+de_dea_mir_list <- compact(de_dea_mir_list)
+
+# print de mir
+lapply(de_dea_mir_list, length)
+
+# validated MTIs for all comparisons
+de_mirtar_list <- 
+  lapply(de_dea_mir_list, function(x){
+    y <- get_multimir(
+      org = "hsa",
+      mirna = x,
+      target = expressed_genes$ENTREZID,
+      table = "mirtarbase",
+      summary = TRUE)
+    return(y@data)
+})
+
+# filter MTIs based on experiment type
+de_mirtar_list_filt <- lapply(de_mirtar_list, function(x){
+  x %>% filter(
+    grepl("Luciferase|Western|pSILAC|Proteomics", experiment)
+    )
+})
+
+# run enrichment analysis
+de_mirtar_go <- lapply(de_mirtar_list_filt, function(x){
+  enrichGO(
+    gene = unique(x$target_entrez),
+    OrgDb = org.Hs.eg.db,
+    ont = "BP",
+    pAdjustMethod = "BH",
+    universe = expressed_genes$ENTREZID
+    )
+})
+
+# flatten results to table
+de_mirtar_go_tb <- lapply(
+  de_mirtar_go, function(x) x %>% .@result
+  ) %>% bind_rows(.id = "comparison") %>%
+  filter(p.adjust<0.05)
+
+# visualize
+de_mirtar_go_tb %>%
+  group_by(comparison) %>%
+  top_n(-15, wt=p.adjust) %>% 
+  ggplot(aes(x = Count, y = fct_reorder(Description, Count))) + 
+  geom_point(aes(size = Count, color = p.adjust)) +
+  facet_wrap(~comparison, nrow = 1) + ylab(NULL) +
+  theme(legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.box = "vertical")
+
+```
+
+Enriched MTI pathways that are overlapping with DEG most (top 20) enriched pathways:
+```{r, warning=FALSE, message=FALSE}
+
+# overlapping paths
+over_paths <- left_join(
+  se_dea_gene_go_tb %>% 
+    group_by(comparison) %>% 
+    top_n(-20, wt=p.adjust) %>% 
+    ungroup(),
+  se_mirtar_go_tb,
+  by = c("comparison", "ID", "Description")
+  ) %>% 
+  rename_all(
+    ~gsub(".x", "_semrna", .x, fixed=TRUE)
+    ) %>% 
+  rename_all(
+    ~gsub(".y", "_semirna", .x, fixed=TRUE)
+    ) %>% 
+  left_join(
+    ., de_mirtar_go_tb %>% 
+      rename_at(
+        vars(GeneRatio:Count), funs(paste0(., "_demirna"))
+        ),
+    by = c("comparison", "ID", "Description")
+    ) %>% 
+  pivot_longer(
+    cols = -c(comparison, ID, Description),
+    names_to = c( '.value', 'grp'),
+    names_pattern = "^(.*_)(.*)"
+    ) %>% 
+  rename_all(
+    ~gsub("_", "", .x)
+    )
+
+# visualize
+over_paths %>% rowwise() %>% 
+  mutate(GeneRatio=eval(parse(text=GeneRatio[1]))) %>%
+  mutate(grp = factor(grp, levels = c("semrna", "semirna", "demirna"))) %>% 
+  ggplot(aes(x = comparison, y = Description)) + 
+  geom_point(aes(size = GeneRatio, color = p.adjust)) +
+  facet_grid(.~grp, scales = "free_x", space = "free") +
+  ylab(NULL)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+sessionInfo()
+```

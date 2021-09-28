@@ -1,0 +1,241 @@
+---
+title: "BeadChip microarray differential expression analysis"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Load prerequisites that are needed for differential gene expression analysis (DEA) in R environment.
+```{r, message=FALSE, warning=FALSE}
+
+# libraries
+library(tidyverse)
+library(limma)
+library(illuminaHumanv4.db)
+library(org.Hs.eg.db)
+
+
+```
+
+Read BeadChip microarray intensity data and respective meta information. The raw data (.idat and bgx files), which are used in this analysis are also deployed at GEO under [GSE169568](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE169568).
+```{r, warning=FALSE, message=FALSE}
+
+# set wd to main
+setwd('..')
+
+# meta data
+meta <- read_tsv(
+  paste0(getwd(),"/data/se_rna_meta.tsv")
+  )
+
+# intensity data
+elist <- readRDS(
+  paste0(getwd(),"/data/elist.rds.gz")
+  )
+
+# add sample info
+elist$samples <- meta
+
+```
+
+Summary of the traits in the dataset:
+```{r, warning=FALSE, message=FALSE}
+
+# summarize samples per trait
+meta %>% group_by(diagnosis) %>% tally() %>%
+  bind_rows(., tibble(diagnosis = "TOTAL", n = sum(.$n)))
+
+```
+
+Probe QC step. Remove low expressed genes (detected in less than 10% of samples), not annotated probes, and duplicated probes targeting the same gene.
+```{r, warning=FALSE, message=FALSE}
+
+# background correction and normalization
+elist_norm <- neqc(elist)
+
+# map probes to array address
+ids <- unlist(
+  mget(
+    rownames(elist_norm),
+    revmap(illuminaHumanv4ARRAYADDRESS),
+    ifnotfound = NA)
+  )
+
+# annotate probes
+elist_norm$genes$Symbol <- unlist(
+  mget(
+    elist_norm$genes$Probe_Id,
+    envir = illuminaHumanv4SYMBOL
+    )
+  )
+elist_norm$genes$ENTREZ <- unlist(
+  mget(elist_norm$genes$Probe_Id,
+       envir = illuminaHumanv4ENTREZID
+       )
+  )
+
+# get probe quality
+qual <- unlist(
+  mget(
+    ids,
+    illuminaHumanv4PROBEQUALITY,
+    ifnotfound = NA
+    )
+  )
+
+# filter bad quality probes
+rem <- qual == "No match" | qual == "Bad"
+elist_norm_filt <- elist_norm[!rem, ]
+
+# filter low expressed genes
+expressed <- rowSums(
+  elist_norm_filt$other$Detection<0.05
+  ) >= round(nrow(elist_norm_filt$samples)*0.1)
+elist_norm_filt <- elist_norm_filt[expressed, ]
+
+# remove not annotated probes (NAs)
+elist_norm_filt <- elist_norm_filt[!is.na(elist_norm_filt$genes$Symbol),]
+
+## remove duplicated probes 
+## modified from genefilter::findLargest()
+rownames(elist_norm_filt) <- elist_norm_filt$genes$Probe_Id
+
+# probe ids
+gN <- intersect(
+  ls(illuminaHumanv4SYMBOL),
+  elist_norm_filt$genes$Probe_Id
+  )
+
+# symbol names
+sN <- unlist(
+  mget(
+    gN,
+    illuminaHumanv4SYMBOL
+    ),
+  use.names = FALSE
+  )
+
+# order by probe
+elist_norm_filt_ord <- elist_norm_filt[gN,]
+
+# calculate medians
+testStat <- rowMedians(elist_norm_filt_ord$E)
+names(testStat) <- gN
+
+# split probes by symbol
+tSsp <- split.default(testStat, sN)
+
+# get index of highest median
+idx <- sapply(tSsp, function(x) names(which.max(x)))
+
+# remove duplicates
+elist_qced <- elist_norm_filt_ord[idx,]
+
+# number of probes and samples
+dim(elist_qced$E)
+
+```
+
+Prior to differential gene expression analysis, we also remove ribosomal genes (those beginning with Mrps, Rpl, and Rps).
+```{r, warning=FALSE, message=FALSE}
+
+# remove ribosomal RPS, MRP and RPL transcripts
+elist_qced <- elist_qced[!grepl("^RPS|^RPL|^MRP", elist_qced$genes$Symbol),]
+
+
+# write values for wgcna
+exprs <- elist_qced$E
+rownames(exprs) <- elist_qced$genes$Symbol
+
+setwd('..')
+write_tsv(
+  exprs %>% as_tibble(rownames = "gene"),
+  paste0(getwd(), "/data/se_rna_exprs.tsv")
+  )
+
+# final number of probes
+dim(elist_qced)
+
+```
+
+Differential gene expression analysis using limma's linear models, which include age as a covariate.
+```{r, warning=FALSE, message=FALSE}
+
+### differential analysis
+
+# definition of model design
+design <- 
+  model.matrix(
+    ~0+diagnosis+age,
+    data = elist_qced$samples
+  )
+
+# weights based on quality
+aw <- arrayWeights(
+  elist_qced,
+  design
+  )
+
+# contrast matrix
+cnts_matrix <-
+  makeContrasts(
+    "CD_HC"=diagnosisCD-diagnosisHC,
+    "UC_HC"=diagnosisUC-diagnosisHC,
+    "CD_UC"=diagnosisCD-diagnosisUC,
+    "SC_HC"=diagnosisSC-diagnosisHC,
+    "CD_SC"=diagnosisCD-diagnosisSC,
+    "UC_SC"=diagnosisUC-diagnosisSC,
+    levels=design
+    )
+
+# fit to a linear model
+fit <- lmFit(
+  elist_qced,
+  design,
+  weights = aw
+  )
+contr_fit <- eBayes(
+  contrasts.fit(
+    fit,
+    cnts_matrix
+    )
+  )
+
+```
+
+Results of treatment-naive Swedish dataset (Supplementary Table 3, 1st sheet).
+```{r, warning=FALSE, message=FALSE}
+
+# get results
+results <- lapply(seq(colnames(cnts_matrix)), function(i){
+  topTable(contr_fit,
+           coef=colnames(cnts_matrix)[i],
+           number=nrow(contr_fit),
+           sort.by="logFC", confint=T) %>%
+    mutate(
+      comparison=gsub("_", " vs ", colnames(cnts_matrix)[i]),
+      dea = case_when(
+        adj.P.Val<0.05 & abs(logFC)>log2(1.5) ~ "de",
+        TRUE ~ "non-de")
+      )
+}) %>% bind_rows()
+
+# write results
+setwd('..')
+write_tsv(
+  results,
+  paste0(getwd(), "/results/se_mirna_dea_results.tsv")
+  )
+
+# print results
+head(results)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+sessionInfo()
+```
+

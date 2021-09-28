@@ -1,0 +1,216 @@
+---
+title: "microRNA differential expression analysis"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Load prerequisites that are needed for differential expression analysis (DEA) in R environment.
+```{r, message=FALSE, warning=FALSE}
+
+# libraries
+library(tidyverse)
+library(edgeR)
+library(limma)
+
+```
+
+Read microRNA count data and respective meta information. The raw data (fastqs) and the counts, which are used in this analysis are deployed at GEO under [GSE169569](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE169569) and [GSE169570](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE169570) accession numbers. The data is QCed in terms of outlier samples, the ouliers were removed based on IQR of expressed microRNAs in logarithmic scale (IQR < 1.5).
+```{r, warning=FALSE, message=FALSE}
+
+# set wd to main
+setwd('..')
+
+# count data
+counts <- list.files(
+  path = paste0(getwd(), "/data"),
+  pattern = "counts.tsv",
+  full.names = TRUE
+  )
+names(counts) <- str_extract(counts, "[a-z]{2}_mirna")
+
+counts <- lapply(counts, function(x){
+  read_tsv(x) %>% column_to_rownames("mirna")
+})
+
+# meta data
+metas <- list.files(
+  path = paste0(getwd(), "/data"),
+  pattern = "mirna_meta.tsv",
+  full.names = TRUE
+  )
+names(metas) <- str_extract(metas, "[a-z]{2}_mirna")
+
+metas <- lapply(metas, function(x){
+  i <- read.table(x, header = TRUE)
+  rownames(i) <- i$sample_id
+  return(i)
+})
+
+```
+
+Summary of the traits in the datasets, where "de" - German (treatment-receiving) and "se" - Swedish (treatment-naive) microRNA datasets:
+```{r, warning=FALSE, message=FALSE}
+
+# summarize samples per trait
+metas %>%
+  bind_rows(.id = "dataset") %>% 
+  group_by(dataset, diagnosis) %>% tally() %>%
+  bind_rows(., tibble(diagnosis = "TOTAL", n = sum(.$n)))
+
+```
+
+microRNA QC: filtering threshold is average raw counts > 1 in dataset.
+```{r, warning=FALSE, message=FALSE}
+
+# summarize mirna expression
+qced_mir <- lapply(counts, function(x){
+  x %>% as_tibble(rownames = "mir") %>% 
+    gather(sample_id, value, -mir) %>% 
+    group_by(mir) %>%
+    summarise(mean = mean(value)) %>% 
+    filter(mean>1) %>% pull(mir)
+})
+
+# number of qced mirnas
+lapply(qced_mir, length) 
+```
+
+Differential expression analysis of microRNA using limma/voom linear models, which include age as a covariate.
+```{r, warning=FALSE, message=FALSE}
+
+# generate edgeR objects
+dge_list <- vector("list", length = length(counts))
+names(dge_list) <- names(counts)
+
+for(set in names(dge_list)){
+  dge_list[[set]] <- DGEList(
+    counts = counts[[set]][qced_mir[[set]],],
+    samples = metas[[set]],
+    group = metas[[set]]$diagnosis
+  )
+}
+
+# calculate size factors
+dge_list <- lapply(
+  dge_list,
+  calcNormFactors
+  )
+  
+# model design
+design_list <- lapply(dge_list, function(x){
+  model.matrix(
+    ~0+diagnosis+age,
+    data = x$samples
+  )
+})
+
+# normalize using voom
+dge_list_norm <- lapply(
+  1:length(dge_list),
+  function(i){
+    voomWithQualityWeights(
+      dge_list[[i]],
+      design_list[[i]],
+      plot=FALSE
+      )
+  })
+names(dge_list_norm) <- names(dge_list)
+
+```
+
+Results of treatment-naive Swedish (se) dataset (Supplementary Table 3, 2nd sheet).
+```{r, warning=FALSE, message=FALSE}
+
+# contrast matrix
+cnts_matrix_se <- makeContrasts(
+  "CD_HC"=diagnosisCD-diagnosisHC,
+  "UC_HC"=diagnosisUC-diagnosisHC,
+  "CD_UC"=diagnosisCD-diagnosisUC,
+  "SC_HC"=diagnosisSC-diagnosisHC,
+  "CD_SC"=diagnosisCD-diagnosisSC,
+  "UC_SC"=diagnosisUC-diagnosisSC,
+  levels=colnames(design_list[["se_mirna"]])
+)
+
+# fit to a linear model
+se_fit <- lmFit(dge_list_norm[["se_mirna"]], design_list[["se_mirna"]])
+se_contr_fit <- eBayes(contrasts.fit(se_fit, cnts_matrix_se))
+
+# get results
+results_se <- lapply(seq(colnames(cnts_matrix_se)), function(i){
+  topTable(se_contr_fit,
+           coef=colnames(cnts_matrix_se)[i],
+           number=nrow(se_contr_fit),
+           sort.by="logFC", confint=T) %>%
+    rownames_to_column("Symbol") %>% 
+    mutate(
+      comparison=gsub("_", " vs ", colnames(cnts_matrix_se)[i]),
+      dea = case_when(
+        adj.P.Val<0.05 & abs(logFC)>log2(1.5) ~ "de",
+        TRUE ~ "non-de")
+      )
+}) %>% bind_rows()
+
+# write results
+setwd('..')
+write_tsv(
+  results_se,
+  paste0(getwd(), "/results/se_mirna_dea_results.tsv")
+  )
+
+# print results
+head(results_se)
+
+```
+
+Results of treatment-receiving German (de) dataset (Supplementary Table 3, 3rd sheet).
+```{r, warning=FALSE, message=FALSE}
+
+# contrast matrix
+cnts_matrix_de <- makeContrasts(
+  "CD_HC"=diagnosisCD-diagnosisHC,
+  "UC_HC"=diagnosisUC-diagnosisHC,
+  "CD_UC"=diagnosisCD-diagnosisUC,
+  levels=colnames(design_list[["de_mirna"]])
+)
+
+# fit to a linear model
+de_fit <- lmFit(dge_list_norm[["de_mirna"]], design_list[["de_mirna"]])
+de_contr_fit <- eBayes(contrasts.fit(de_fit, cnts_matrix_de))
+
+# get results
+results_de <- lapply(seq(colnames(cnts_matrix_de)), function(i){
+  topTable(de_contr_fit,
+           coef=colnames(cnts_matrix_de)[i],
+           number=nrow(de_contr_fit),
+           sort.by="logFC", confint=T) %>%
+    rownames_to_column("Symbol") %>% 
+    mutate(
+      comparison=gsub("_", " vs ", colnames(cnts_matrix_de)[i]),
+      dea = case_when(
+        adj.P.Val<0.05 & abs(logFC)>log2(1.5) ~ "de",
+        TRUE ~ "non-de")
+      )
+}) %>% bind_rows()
+
+# write results
+setwd('..')
+write_tsv(
+  results_de,
+  paste0(getwd(), "/results/de_mirna_dea_results.tsv")
+  )
+
+# print results
+head(results_de)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+sessionInfo()
+```
+
+
