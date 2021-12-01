@@ -246,7 +246,7 @@ Enriched MTI pathways that are overlapping with DEG most (top 20) enriched pathw
 over_paths <- left_join(
   se_dea_gene_go_tb %>% 
     group_by(comparison) %>% 
-    top_n(-20, wt=p.adjust) %>% 
+    top_n(-25, wt=p.adjust) %>% 
     ungroup(),
   se_mirtar_go_tb,
   by = c("comparison", "ID", "Description")

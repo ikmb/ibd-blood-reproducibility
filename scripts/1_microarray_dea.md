@@ -43,7 +43,7 @@ meta %>% group_by(diagnosis) %>% tally() %>%
   bind_rows(., tibble(diagnosis = "TOTAL", n = sum(.$n)))
 ```
 
-    ## # A tibble: 5 x 2
+    ## # A tibble: 5 × 2
     ##   diagnosis     n
     ##   <chr>     <int>
     ## 1 CD           52
@@ -142,7 +142,7 @@ elist_qced <- elist_norm_filt_ord[idx,]
 dim(elist_qced$E)
 ```
 
-    ## [1] 11911   205
+    ## [1] 11909   205
 
 Prior to differential gene expression analysis, we also remove ribosomal
 genes (those beginning with Mrps, Rpl, and Rps).
@@ -166,7 +166,7 @@ write_tsv(
 dim(elist_qced)
 ```
 
-    ## [1] 11727   205
+    ## [1] 11725   205
 
 Differential gene expression analysis using limma’s linear models, which
 include age as a covariate.
@@ -177,7 +177,7 @@ include age as a covariate.
 # definition of model design
 design <- 
   model.matrix(
-    ~0+diagnosis+age,
+    ~0+diagnosis+age+gender,
     data = elist_qced$samples
   )
 
@@ -235,39 +235,46 @@ results <- lapply(seq(colnames(cnts_matrix)), function(i){
 setwd('..')
 write_tsv(
   results,
-  paste0(getwd(), "/results/se_mirna_dea_results.tsv")
+  paste0(getwd(), "/results/se_rna_dea_results.tsv")
   )
 
 # print results
 head(results)
 ```
 
-    ##       Probe_Id Array_Address_Id  Symbol ENTREZ    logFC     CI.L     CI.R
-    ## 1 ILMN_1651358          4830541    HBE1   3046 2.622609 2.206845 3.038374
-    ## 2 ILMN_1694548           240594   ANXA3    306 2.018144 1.604871 2.431417
-    ## 3 ILMN_1664706          4570725   H3C13 653604 1.946959 1.638636 2.255282
-    ## 4 ILMN_2387385          3290368  IGFBP1   3484 1.892989 1.516345 2.269632
-    ## 5 ILMN_1748915          1410221 S100A12   6283 1.807271 1.461023 2.153519
-    ## 6 ILMN_1724533            70167    LY96  23643 1.765111 1.411113 2.119110
-    ##     AveExpr         t      P.Value    adj.P.Val        B comparison dea
-    ## 1 11.607552 12.436725 7.967173e-27 3.114368e-23 50.15212   CD vs HC  de
-    ## 2  8.946410  9.627982 2.440829e-18 9.870207e-16 31.05893   CD vs HC  de
-    ## 3  7.247558 12.450054 7.244552e-27 3.114368e-23 50.24501   CD vs HC  de
-    ## 4  8.392602  9.909174 3.675388e-19 1.959149e-16 32.90813   CD vs HC  de
-    ## 5 11.098550 10.290972 2.732240e-20 3.204098e-17 35.44738   CD vs HC  de
-    ## 6  9.143565  9.830848 6.239534e-19 2.814270e-16 32.39116   CD vs HC  de
+    ##                      Probe_Id Array_Address_Id  Symbol ENTREZ    logFC     CI.L
+    ## ILMN_1651358...1 ILMN_1651358          4830541    HBE1   3046 2.605011 2.186610
+    ## ILMN_1694548...2 ILMN_1694548           240594   ANXA3    306 2.063832 1.652707
+    ## ILMN_1664706...3 ILMN_1664706          4570725   H3C13 653604 1.972432 1.663019
+    ## ILMN_2387385...4 ILMN_2387385          3290368  IGFBP1   3484 1.866047 1.488465
+    ## ILMN_1748915...5 ILMN_1748915          1410221 S100A12   6283 1.815149 1.466480
+    ## ILMN_1724533...6 ILMN_1724533            70167    LY96  23643 1.783370 1.430133
+    ##                      CI.R   AveExpr         t      P.Value    adj.P.Val
+    ## ILMN_1651358...1 3.023412 11.607552 12.275777 2.668256e-26 1.042843e-22
+    ## ILMN_1694548...2 2.474958  8.946410  9.897642 4.105999e-19 1.719387e-16
+    ## ILMN_1664706...3 2.281844  7.247558 12.568873 3.313261e-27 1.942399e-23
+    ## ILMN_2387385...4 2.243628  8.392602  9.744145 1.154583e-18 4.081533e-16
+    ## ILMN_1748915...5 2.163817 11.098550 10.264355 3.400537e-20 2.491956e-17
+    ## ILMN_1724533...6 2.136607  9.143565  9.954222 2.801047e-19 1.263164e-16
+    ##                         B comparison dea
+    ## ILMN_1651358...1 48.98837   CD vs HC  de
+    ## ILMN_1694548...2 32.80451   CD vs HC  de
+    ## ILMN_1664706...3 51.02815   CD vs HC  de
+    ## ILMN_2387385...4 31.79392   CD vs HC  de
+    ## ILMN_1748915...5 35.23997   CD vs HC  de
+    ## ILMN_1724533...6 33.17838   CD vs HC  de
 
 ``` r
 sessionInfo()
 ```
 
-    ## R version 4.0.2 (2020-06-22)
+    ## R version 4.1.1 (2021-08-10)
     ## Platform: x86_64-apple-darwin17.0 (64-bit)
-    ## Running under: macOS  10.16
+    ## Running under: macOS Big Sur 10.16
     ## 
     ## Matrix products: default
-    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
-    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.0.dylib
+    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
     ## 
     ## locale:
     ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
@@ -277,28 +284,37 @@ sessionInfo()
     ## [8] methods   base     
     ## 
     ## other attached packages:
-    ##  [1] illuminaHumanv4.db_1.26.0 org.Hs.eg.db_3.11.4      
-    ##  [3] AnnotationDbi_1.50.1      IRanges_2.22.2           
-    ##  [5] S4Vectors_0.26.1          Biobase_2.48.0           
-    ##  [7] BiocGenerics_0.34.0       limma_3.44.3             
-    ##  [9] forcats_0.5.0             stringr_1.4.0            
-    ## [11] dplyr_1.0.0               purrr_0.3.4              
-    ## [13] readr_1.3.1               tidyr_1.1.3              
-    ## [15] tibble_3.0.3              ggplot2_3.3.2            
-    ## [17] tidyverse_1.3.0          
+    ##  [1] illuminaHumanv4.db_1.26.0 org.Hs.eg.db_3.13.0      
+    ##  [3] AnnotationDbi_1.54.1      IRanges_2.26.0           
+    ##  [5] S4Vectors_0.30.2          Biobase_2.52.0           
+    ##  [7] BiocGenerics_0.38.0       limma_3.48.3             
+    ##  [9] forcats_0.5.1             stringr_1.4.0            
+    ## [11] dplyr_1.0.7               purrr_0.3.4              
+    ## [13] readr_2.0.2               tidyr_1.1.4              
+    ## [15] tibble_3.1.5              ggplot2_3.3.5            
+    ## [17] tidyverse_1.3.1          
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] Rcpp_1.0.6       lubridate_1.7.9  utf8_1.1.4       assertthat_0.2.1
-    ##  [5] digest_0.6.25    R6_2.4.1         cellranger_1.1.0 backports_1.1.8 
-    ##  [9] reprex_0.3.0     RSQLite_2.2.0    evaluate_0.14    httr_1.4.1      
-    ## [13] pillar_1.4.6     rlang_0.4.11     readxl_1.3.1     rstudioapi_0.11 
-    ## [17] blob_1.2.1       rmarkdown_2.3    bit_1.1-15.2     munsell_0.5.0   
-    ## [21] broom_0.7.0      compiler_4.0.2   modelr_0.1.8     xfun_0.19       
-    ## [25] pkgconfig_2.0.3  htmltools_0.5.0  tidyselect_1.1.0 fansi_0.4.1     
-    ## [29] crayon_1.3.4     dbplyr_1.4.4     withr_2.4.2      grid_4.0.2      
-    ## [33] jsonlite_1.7.2   gtable_0.3.0     lifecycle_0.2.0  DBI_1.1.0       
-    ## [37] magrittr_1.5     scales_1.1.1     cli_2.0.2        stringi_1.4.6   
-    ## [41] fs_1.4.2         xml2_1.3.2       ellipsis_0.3.1   generics_0.0.2  
-    ## [45] vctrs_0.3.8      tools_4.0.2      bit64_0.9-7      glue_1.4.1      
-    ## [49] hms_0.5.3        yaml_2.2.1       colorspace_1.4-1 rvest_0.3.6     
-    ## [53] memoise_1.1.0    knitr_1.29       haven_2.3.1
+    ##  [1] httr_1.4.2             vroom_1.5.5            bit64_4.0.5           
+    ##  [4] jsonlite_1.7.2         modelr_0.1.8           assertthat_0.2.1      
+    ##  [7] blob_1.2.2             GenomeInfoDbData_1.2.6 cellranger_1.1.0      
+    ## [10] yaml_2.2.1             pillar_1.6.3           RSQLite_2.2.8         
+    ## [13] backports_1.2.1        glue_1.4.2             digest_0.6.28         
+    ## [16] XVector_0.32.0         rvest_1.0.1            colorspace_2.0-2      
+    ## [19] htmltools_0.5.2        pkgconfig_2.0.3        broom_0.7.9           
+    ## [22] haven_2.4.3            zlibbioc_1.38.0        scales_1.1.1          
+    ## [25] tzdb_0.1.2             KEGGREST_1.32.0        generics_0.1.0        
+    ## [28] ellipsis_0.3.2         cachem_1.0.6           withr_2.4.2           
+    ## [31] cli_3.0.1              magrittr_2.0.1         crayon_1.4.1          
+    ## [34] readxl_1.3.1           memoise_2.0.0          evaluate_0.14         
+    ## [37] fs_1.5.0               fansi_0.5.0            xml2_1.3.2            
+    ## [40] tools_4.1.1            hms_1.1.1              lifecycle_1.0.1       
+    ## [43] munsell_0.5.0          reprex_2.0.1           Biostrings_2.60.2     
+    ## [46] compiler_4.1.1         GenomeInfoDb_1.28.4    rlang_0.4.11          
+    ## [49] grid_4.1.1             RCurl_1.98-1.5         rstudioapi_0.13       
+    ## [52] bitops_1.0-7           rmarkdown_2.11         gtable_0.3.0          
+    ## [55] DBI_1.1.1              R6_2.5.1               lubridate_1.8.0       
+    ## [58] knitr_1.36             fastmap_1.1.0          bit_4.0.4             
+    ## [61] utf8_1.2.2             stringi_1.7.5          Rcpp_1.0.7            
+    ## [64] vctrs_0.3.8            png_0.1-7              dbplyr_2.1.1          
+    ## [67] tidyselect_1.1.1       xfun_0.26

@@ -103,7 +103,7 @@ dge_list <- lapply(
 # model design
 design_list <- lapply(dge_list, function(x){
   model.matrix(
-    ~0+diagnosis+age,
+    ~0+diagnosis+age+gender,
     data = x$samples
   )
 })
