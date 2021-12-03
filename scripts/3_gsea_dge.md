@@ -13,7 +13,7 @@ library(multiMiR)
 ```
 
 Read results of differential gene expression, which were generated using
-microrna_dea.Rmd and microarray_dea.Rmd.
+microrna\_dea.Rmd and microarray\_dea.Rmd.
 
 ``` r
 # set wd to main
@@ -68,18 +68,18 @@ dea_res
     ## 
     ## $se_rna_dea
     ## # A tibble: 70,350 × 14
-    ##    Probe_Id    Array_Address_Id Symbol    ENTREZ logFC  CI.L  CI.R AveExpr     t
-    ##    <chr>                  <dbl> <chr>      <dbl> <dbl> <dbl> <dbl>   <dbl> <dbl>
-    ##  1 ILMN_16513…          4830541 HBE1      3.05e3  2.61  2.19  3.02   11.6  12.3 
-    ##  2 ILMN_16945…           240594 ANXA3     3.06e2  2.06  1.65  2.47    8.95  9.90
-    ##  3 ILMN_16647…          4570725 H3C13     6.54e5  1.97  1.66  2.28    7.25 12.6 
-    ##  4 ILMN_23873…          3290368 IGFBP1    3.48e3  1.87  1.49  2.24    8.39  9.74
-    ##  5 ILMN_17489…          1410221 S100A12   6.28e3  1.82  1.47  2.16   11.1  10.3 
-    ##  6 ILMN_17245…            70167 LY96      2.36e4  1.78  1.43  2.14    9.14  9.95
-    ##  7 ILMN_21840…          2260576 COX7B     1.35e3  1.74  1.33  2.15    7.04  8.37
-    ##  8 ILMN_18163…          1230164 MTRNR2…   1.00e8  1.67  1.41  1.92    7.83 13.0 
-    ##  9 ILMN_17773…          4260484 COMMD6    1.71e5  1.64  1.18  2.10    8.45  7.07
-    ## 10 ILMN_21832…          3310161 TDP2      5.16e4  1.53  1.10  1.96    6.94  7.05
+    ##    Probe_Id     Array_Address_Id Symbol   ENTREZ logFC  CI.L  CI.R AveExpr     t
+    ##    <chr>                   <dbl> <chr>     <dbl> <dbl> <dbl> <dbl>   <dbl> <dbl>
+    ##  1 ILMN_1651358          4830541 HBE1     3.05e3  2.61  2.19  3.02   11.6  12.3 
+    ##  2 ILMN_1694548           240594 ANXA3    3.06e2  2.06  1.65  2.47    8.95  9.90
+    ##  3 ILMN_1664706          4570725 H3C13    6.54e5  1.97  1.66  2.28    7.25 12.6 
+    ##  4 ILMN_2387385          3290368 IGFBP1   3.48e3  1.87  1.49  2.24    8.39  9.74
+    ##  5 ILMN_1748915          1410221 S100A12  6.28e3  1.82  1.47  2.16   11.1  10.3 
+    ##  6 ILMN_1724533            70167 LY96     2.36e4  1.78  1.43  2.14    9.14  9.95
+    ##  7 ILMN_2184049          2260576 COX7B    1.35e3  1.74  1.33  2.15    7.04  8.37
+    ##  8 ILMN_1816342          1230164 MTRNR2L1 1.00e8  1.67  1.41  1.92    7.83 13.0 
+    ##  9 ILMN_1777378          4260484 COMMD6   1.71e5  1.64  1.18  2.10    8.45  7.07
+    ## 10 ILMN_2183216          3310161 TDP2     5.16e4  1.53  1.10  1.96    6.94  7.05
     ## # … with 70,340 more rows, and 5 more variables: P.Value <dbl>,
     ## #   adj.P.Val <dbl>, B <dbl>, comparison <chr>, dea <chr>
 
@@ -244,7 +244,7 @@ se_mirtar_go <- lapply(se_mirtar_list_filt, function(x){
 # flatten results to table
 se_mirtar_go_tb <- lapply(
   se_mirtar_go, function(x) x %>% .@result
-  ) %>% bind_rows(.id = "comparison") %>%
+  ) %>% bind_rows(.id = "comparison") %>% 
   filter(p.adjust<0.05)
 
 # visualize
@@ -322,7 +322,7 @@ de_mirtar_go <- lapply(de_mirtar_list_filt, function(x){
 # flatten results to table
 de_mirtar_go_tb <- lapply(
   de_mirtar_go, function(x) x %>% .@result
-  ) %>% bind_rows(.id = "comparison") %>%
+  ) %>% bind_rows(.id = "comparison") %>% 
   filter(p.adjust<0.05)
 
 # visualize
@@ -390,13 +390,13 @@ over_paths %>% rowwise() %>%
 sessionInfo()
 ```
 
-    ## R version 4.1.1 (2021-08-10)
+    ## R version 4.0.2 (2020-06-22)
     ## Platform: x86_64-apple-darwin17.0 (64-bit)
-    ## Running under: macOS Big Sur 10.16
+    ## Running under: macOS  10.16
     ## 
     ## Matrix products: default
-    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.0.dylib
-    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
     ## 
     ## locale:
     ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
@@ -406,50 +406,47 @@ sessionInfo()
     ## [8] methods   base     
     ## 
     ## other attached packages:
-    ##  [1] multiMiR_1.14.0       org.Hs.eg.db_3.13.0   AnnotationDbi_1.54.1 
-    ##  [4] IRanges_2.26.0        S4Vectors_0.30.2      Biobase_2.52.0       
-    ##  [7] BiocGenerics_0.38.0   clusterProfiler_4.0.5 forcats_0.5.1        
-    ## [10] stringr_1.4.0         dplyr_1.0.7           purrr_0.3.4          
-    ## [13] readr_2.0.2           tidyr_1.1.4           tibble_3.1.5         
-    ## [16] ggplot2_3.3.5         tidyverse_1.3.1      
+    ##  [1] multiMiR_1.10.0        org.Hs.eg.db_3.11.4    AnnotationDbi_1.50.3  
+    ##  [4] IRanges_2.22.2         S4Vectors_0.26.1       Biobase_2.48.0        
+    ##  [7] BiocGenerics_0.34.0    clusterProfiler_3.16.1 forcats_0.5.1         
+    ## [10] stringr_1.4.0          dplyr_1.0.7            purrr_0.3.4           
+    ## [13] readr_2.1.0            tidyr_1.1.4            tibble_3.1.6          
+    ## [16] ggplot2_3.3.5          tidyverse_1.3.1       
     ## 
     ## loaded via a namespace (and not attached):
-    ##   [1] fgsea_1.18.0           colorspace_2.0-2       ggtree_3.0.4          
-    ##   [4] ellipsis_0.3.2         qvalue_2.24.0          XVector_0.32.0        
-    ##   [7] fs_1.5.0               aplot_0.1.1            rstudioapi_0.13       
-    ##  [10] farver_2.1.0           graphlayouts_0.7.1     ggrepel_0.9.1         
-    ##  [13] bit64_4.0.5            scatterpie_0.1.7       fansi_0.5.0           
-    ##  [16] lubridate_1.8.0        xml2_1.3.2             splines_4.1.1         
-    ##  [19] cachem_1.0.6           GOSemSim_2.18.1        knitr_1.36            
-    ##  [22] polyclip_1.10-0        jsonlite_1.7.2         broom_0.7.9           
-    ##  [25] GO.db_3.13.0           dbplyr_2.1.1           png_0.1-7             
-    ##  [28] ggforce_0.3.3          compiler_4.1.1         httr_1.4.2            
-    ##  [31] backports_1.2.1        lazyeval_0.2.2         assertthat_0.2.1      
-    ##  [34] Matrix_1.3-4           fastmap_1.1.0          cli_3.0.1             
-    ##  [37] tweenr_1.0.2           htmltools_0.5.2        tools_4.1.1           
-    ##  [40] igraph_1.2.6           gtable_0.3.0           glue_1.4.2            
-    ##  [43] GenomeInfoDbData_1.2.6 reshape2_1.4.4         DO.db_2.9             
-    ##  [46] fastmatch_1.1-3        Rcpp_1.0.7             enrichplot_1.12.3     
-    ##  [49] cellranger_1.1.0       vctrs_0.3.8            Biostrings_2.60.2     
-    ##  [52] nlme_3.1-153           ape_5.5                ggraph_2.0.5          
-    ##  [55] xfun_0.26              rvest_1.0.1            lifecycle_1.0.1       
-    ##  [58] XML_3.99-0.8           DOSE_3.18.3            zlibbioc_1.38.0       
-    ##  [61] MASS_7.3-54            scales_1.1.1           tidygraph_1.2.0       
-    ##  [64] vroom_1.5.5            hms_1.1.1              RColorBrewer_1.1-2    
-    ##  [67] yaml_2.2.1             memoise_2.0.0          gridExtra_2.3         
-    ##  [70] ggfun_0.0.4            downloader_0.4         yulab.utils_0.0.4     
-    ##  [73] stringi_1.7.5          RSQLite_2.2.8          highr_0.9             
-    ##  [76] tidytree_0.3.5         BiocParallel_1.26.2    GenomeInfoDb_1.28.4   
-    ##  [79] rlang_0.4.11           pkgconfig_2.0.3        bitops_1.0-7          
-    ##  [82] evaluate_0.14          lattice_0.20-45        labeling_0.4.2        
-    ##  [85] treeio_1.16.2          patchwork_1.1.1        shadowtext_0.0.9      
-    ##  [88] cowplot_1.1.1          bit_4.0.4              tidyselect_1.1.1      
-    ##  [91] plyr_1.8.6             magrittr_2.0.1         R6_2.5.1              
-    ##  [94] generics_0.1.0         DBI_1.1.1              pillar_1.6.3          
-    ##  [97] haven_2.4.3            withr_2.4.2            KEGGREST_1.32.0       
-    ## [100] RCurl_1.98-1.5         modelr_0.1.8           crayon_1.4.1          
-    ## [103] utf8_1.2.2             tzdb_0.1.2             rmarkdown_2.11        
-    ## [106] viridis_0.6.1          grid_4.1.1             readxl_1.3.1          
-    ## [109] data.table_1.14.2      blob_1.2.2             reprex_2.0.1          
-    ## [112] digest_0.6.28          gridGraphics_0.5-1     munsell_0.5.0         
-    ## [115] ggplotify_0.1.0        viridisLite_0.4.0
+    ##   [1] fgsea_1.14.0        colorspace_2.0-2    ellipsis_0.3.2     
+    ##   [4] ggridges_0.5.3      qvalue_2.20.0       fs_1.5.0           
+    ##   [7] rstudioapi_0.13     farver_2.1.0        urltools_1.7.3     
+    ##  [10] graphlayouts_0.7.2  ggrepel_0.9.1       bit64_4.0.5        
+    ##  [13] scatterpie_0.1.7    fansi_0.5.0         lubridate_1.8.0    
+    ##  [16] xml2_1.3.2          splines_4.0.2       cachem_1.0.6       
+    ##  [19] GOSemSim_2.14.2     knitr_1.36          polyclip_1.10-0    
+    ##  [22] jsonlite_1.7.2      broom_0.7.10        GO.db_3.11.4       
+    ##  [25] dbplyr_2.1.1        ggforce_0.3.3       BiocManager_1.30.16
+    ##  [28] compiler_4.0.2      httr_1.4.2          rvcheck_0.2.1      
+    ##  [31] backports_1.4.0     assertthat_0.2.1    Matrix_1.3-4       
+    ##  [34] fastmap_1.1.0       cli_3.1.0           tweenr_1.0.2       
+    ##  [37] htmltools_0.5.2     prettyunits_1.1.1   tools_4.0.2        
+    ##  [40] igraph_1.2.5        gtable_0.3.0        glue_1.5.0         
+    ##  [43] reshape2_1.4.4      DO.db_2.9           fastmatch_1.1-3    
+    ##  [46] Rcpp_1.0.7          enrichplot_1.8.1    cellranger_1.1.0   
+    ##  [49] vctrs_0.3.8         ggraph_2.0.5        xfun_0.28          
+    ##  [52] rvest_1.0.2         lifecycle_1.0.1     XML_3.99-0.8       
+    ##  [55] DOSE_3.14.0         europepmc_0.4.1     MASS_7.3-54        
+    ##  [58] scales_1.1.1        tidygraph_1.2.0     vroom_1.5.6        
+    ##  [61] hms_1.1.1           RColorBrewer_1.1-2  yaml_2.2.1         
+    ##  [64] memoise_2.0.0       gridExtra_2.3       ggfun_0.0.4        
+    ##  [67] downloader_0.4      yulab.utils_0.0.4   triebeard_0.3.0    
+    ##  [70] stringi_1.7.5       RSQLite_2.2.8       highr_0.9          
+    ##  [73] BiocParallel_1.22.0 bitops_1.0-7        rlang_0.4.12       
+    ##  [76] pkgconfig_2.0.3     evaluate_0.14       lattice_0.20-45    
+    ##  [79] labeling_0.4.2      cowplot_1.1.1       bit_4.0.4          
+    ##  [82] tidyselect_1.1.1    plyr_1.8.6          magrittr_2.0.1     
+    ##  [85] R6_2.5.1            generics_0.1.1      DBI_1.1.1          
+    ##  [88] pillar_1.6.4        haven_2.4.3         withr_2.4.2        
+    ##  [91] RCurl_1.98-1.5      modelr_0.1.8        crayon_1.4.2       
+    ##  [94] utf8_1.2.2          tzdb_0.2.0          rmarkdown_2.11     
+    ##  [97] viridis_0.6.2       progress_1.2.2      grid_4.0.2         
+    ## [100] readxl_1.3.1        data.table_1.14.2   blob_1.2.2         
+    ## [103] reprex_2.0.1        digest_0.6.28       gridGraphics_0.5-1 
+    ## [106] munsell_0.5.0       viridisLite_0.4.0   ggplotify_0.1.0

@@ -159,7 +159,7 @@ se_mirtar_go <- lapply(se_mirtar_list_filt, function(x){
 # flatten results to table
 se_mirtar_go_tb <- lapply(
   se_mirtar_go, function(x) x %>% .@result
-  ) %>% bind_rows(.id = "comparison") %>%
+  ) %>% bind_rows(.id = "comparison") %>% 
   filter(p.adjust<0.05)
 
 # visualize
@@ -223,7 +223,7 @@ de_mirtar_go <- lapply(de_mirtar_list_filt, function(x){
 # flatten results to table
 de_mirtar_go_tb <- lapply(
   de_mirtar_go, function(x) x %>% .@result
-  ) %>% bind_rows(.id = "comparison") %>%
+  ) %>% bind_rows(.id = "comparison") %>% 
   filter(p.adjust<0.05)
 
 # visualize
