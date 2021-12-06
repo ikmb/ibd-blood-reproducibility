@@ -8,4 +8,5 @@ The analysis can be done as following:
 3)  Gene set enrichment analysis (GSEA) of differentially expressed genes and validated targets of differentially expressed microRNAs (run:scripts/3_gsea_dge.Rmd);
 4)  Generation of gene co-expression networks (TOMs) for each trait using weighted gene correlation analysis (WGCNA) and treatment-naive IBD patients (run:scripts/4_microarray_wgcna.Rmd);
 5)  Nonnegative tensor decomposition of gene co-expression networks (TOMs) using CP heirarchical alternating least squares method (run:scripts/5_wgcna_tensor_decomp.ipynb). The method includes random state and therefore, the results might slightly differ, however they should not change drastically, i.e. the main co-expression components will be detected although the order might be different.
-6)  Functional annotation of decomposed co-expression components using gene set enrichment analysis (GSEA) (run:scripts/6_component_annotation.Rmd)
+6)  Functional annotation of decomposed co-expression components using gene set enrichment analysis (GSEA) (run:scripts/6_component_annotation.Rmd);
+7)  Validation of GSEA using differentially expressed genes from [Ostrowski et al, 2019](https://doi.org/10.1093/ecco-jcc/jjy205) (run:scripts/7_gsea_dge_ostrowski_et_al.Rmd)

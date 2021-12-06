@@ -1,0 +1,131 @@
+---
+title: "Gene set enrichment analysis of differentially expressed genes from Ostrowski et al 2019"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load prerequisites that will be needed for gene set enrichment analysis (GSEA) in R environment.
+```{r, message=FALSE, warning=FALSE}
+
+# libraries
+library(tidyverse)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(biomaRt)
+library(openxlsx)
+
+# load Ensembl database for gene mapping
+ensembl <- useEnsembl(
+  biomart = "genes"
+  )
+ensembl <- useDataset(
+  dataset = "hsapiens_gene_ensembl",
+  mart = ensembl
+  )
+
+```
+
+Read results of differential gene expression, which were obtained from [Ostrowski et al, 2019](https://doi.org/10.1093/ecco-jcc/jjy205) 
+```{r, warning=FALSE, message=FALSE}
+
+###
+### first manually download the Supplementary Table S2 
+### from https://doi.org/10.1093/ecco-jcc/jjy205
+
+# set wd to main
+setwd('..')
+
+# dea results
+sheet_names <- getSheetNames("data/jjy205_suppl_supplementary_table_s2.xlsx")
+
+dea_res_list <- lapply(sheet_names, function(x){
+  read.xlsx(
+    "data/jjy205_suppl_supplementary_table_s2.xlsx",
+    sheet = x
+  )
+})
+names(dea_res_list) <- sheet_names
+
+# print
+lapply(dea_res_list, head)
+
+# remove legend
+dea_res_list <- dea_res_list[-1]
+
+```
+
+Retain only in blood expressed genes based on DESeq2's independentFiltering filtering (padj not equal to NA).
+```{r, warning=FALSE, message=FALSE}
+
+# retain only expressed genes 
+expressed_genes <- lapply(dea_res_list, function(x){
+    x %>% filter(!is.na(padj)) %>% pull(gene)
+  }) %>% unlist() %>% unique()
+
+# retrieve IDs
+expressed_genes_tb <- getBM(
+  attributes = c("entrezgene_id", "hgnc_symbol"),
+  filters = "hgnc_symbol",
+  values = expressed_genes,
+  mart=ensembl
+  )
+
+```
+
+GSEA of deferentially expressed (log2FoldChange > log2(1.5) and padj < 0.05) genes was performed using in blood expressed genes as a universe for over-representation analysis (ORA).
+```{r, warning=FALSE, message=FALSE, out.width= '100%'}
+
+# get deferentially expressed genes
+dea_res_list_sig <- lapply(dea_res_list, function(x){
+  i <- x %>% dplyr::rename(
+    "hgnc_symbol" = "gene"
+    ) %>% 
+    # filter only significantly diff expressed
+    filter((abs(log2FoldChange) > log2(1.5)) & padj<0.05) %>% 
+    left_join(., expressed_genes_tb)
+  if(nrow(i) == 0){
+   i <- NULL 
+  }
+  return(i)
+})
+
+# print de genes
+lapply(dea_res_list_sig, nrow)
+
+# remove empty elements (such as CD vs UC)
+dea_res_list_sig <- compact(dea_res_list_sig)
+
+# perform over-representation analysis
+# using expressed genes as universe
+dea_gene_go <- lapply(
+  dea_res_list_sig, function(x) {
+    enrichGO(
+      gene = x$entrezgene_id,
+      OrgDb = org.Hs.eg.db,
+      ont = "BP",
+      pAdjustMethod = "BH",
+      universe = as.character(
+        expressed_genes_tb$entrezgene_id
+        )
+      )
+  })
+
+# combine results to table for plotting
+dea_gene_go_tb <- lapply(
+  dea_gene_go, function(x){
+     x %>% .@result  }
+  ) %>% bind_rows(.id = "comparison") %>% 
+  filter(p.adjust<0.05)
+
+# visualize top sig terms
+dea_gene_go_tb %>% 
+  group_by(comparison) %>%
+  top_n(-20, wt=p.adjust) %>% 
+  ggplot(aes(x = Count, y = fct_reorder(Description, Count))) + 
+  geom_point(aes(size = Count, color = p.adjust)) +
+  facet_wrap(~comparison, nrow = 1) + ylab(NULL)
+
+```
